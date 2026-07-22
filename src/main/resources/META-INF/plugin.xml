@@ -112,7 +112,12 @@
                 forClass="com.intellij.find.usages.api.UsageSearchParameters"
                 implementationClass="com.ipfsoftwares.jbplugin.usages.TanStackRouteUsageSearcher"/>
 
-        <!-- Unresolved to= inspection (same shortName across JS dialects to avoid duplicate warnings) -->
+        <!--
+          Unresolved to= inspection.
+          shortName MUST be unique per registration (platform rejects duplicates).
+          Duplicate on-editor highlights are prevented in UnresolvedRouteInspection
+          via canonical-host anchoring, not by sharing shortName.
+        -->
         <localInspection
                 language="JavaScript"
                 shortName="TanStackUnresolvedRoute"
@@ -124,7 +129,7 @@
                 implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
         <localInspection
                 language="TypeScript"
-                shortName="TanStackUnresolvedRoute"
+                shortName="TanStackUnresolvedRouteTS"
                 bundle="messages.JbPluginBundle"
                 key="inspection.unresolved.route.display.name"
                 groupKey="inspection.group.name"
@@ -133,7 +138,7 @@
                 implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
         <localInspection
                 language="TypeScript JSX"
-                shortName="TanStackUnresolvedRoute"
+                shortName="TanStackUnresolvedRouteTSX"
                 bundle="messages.JbPluginBundle"
                 key="inspection.unresolved.route.display.name"
                 groupKey="inspection.group.name"
@@ -142,7 +147,7 @@
                 implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
         <localInspection
                 language="JSX Harmony"
-                shortName="TanStackUnresolvedRoute"
+                shortName="TanStackUnresolvedRouteJSX"
                 bundle="messages.JbPluginBundle"
                 key="inspection.unresolved.route.display.name"
                 groupKey="inspection.group.name"
@@ -151,7 +156,7 @@
                 implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
         <localInspection
                 language="ECMAScript 6"
-                shortName="TanStackUnresolvedRoute"
+                shortName="TanStackUnresolvedRouteES6"
                 bundle="messages.JbPluginBundle"
                 key="inspection.unresolved.route.display.name"
                 groupKey="inspection.group.name"
