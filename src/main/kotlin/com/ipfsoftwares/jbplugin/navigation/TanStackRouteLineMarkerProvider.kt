@@ -3,13 +3,14 @@ package com.ipfsoftwares.jbplugin.navigation
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder
+import com.intellij.icons.AllIcons
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
-import com.ipfsoftwares.jbplugin.TanStackIcons
 import com.ipfsoftwares.jbplugin.route.RouteIndexService
 
 /**
  * Single gutter icon per TanStack `to` path that resolves to a route file.
+ * Uses the platform world icon (not the plugin logo).
  */
 class TanStackRouteLineMarkerProvider : RelatedItemLineMarkerProvider() {
 
@@ -27,7 +28,7 @@ class TanStackRouteLineMarkerProvider : RelatedItemLineMarkerProvider() {
             ?: return
         val target = PsiManager.getInstance(project).findFile(vf) ?: return
 
-        val builder = NavigationGutterIconBuilder.create(TanStackIcons.Route)
+        val builder = NavigationGutterIconBuilder.create(AllIcons.Nodes.PpWeb)
             .setTargets(listOf(target))
             .setTooltipText("Go to TanStack route: ${link.to} → ${vf.name}")
             .setPopupTitle("TanStack route")

@@ -4,12 +4,10 @@ import com.intellij.openapi.util.IconLoader
 import javax.swing.Icon
 
 /**
- * Plugin icons (generated from logo-color-100.png).
+ * Plugin chrome icons. Logo is for branding (plugin list / tool window);
+ * gutter uses the platform world icon via AllIcons.Nodes.PpWeb.
  */
 object TanStackIcons {
     @JvmField
     val ToolWindow: Icon = IconLoader.getIcon("/icons/tanstackToolWindow.png", TanStackIcons::class.java)
-
-    @JvmField
-    val Route: Icon = IconLoader.getIcon("/icons/tanstackRoute.png", TanStackIcons::class.java)
 }
