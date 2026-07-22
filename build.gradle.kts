@@ -45,11 +45,10 @@ intellijPlatform {
         description = """
             TanStack support for WebStorm — route link navigation for TanStack Router / Start.
             <ul>
-              <li><b>Go to Definition</b> on <code>&lt;Link to="..."&gt;</code>, <code>to={"/path"}</code>, <code>navigate({ to })</code>, and <code>redirect({ to })</code></li>
-              <li>Absolute and <b>relative</b> <code>to</code> paths (<code>.</code>, <code>..</code>, <code>../edit</code>)</li>
-              <li>Resolves via generated <code>routeTree.gen.ts</code> to the real route module file</li>
-              <li>Single gutter icon per resolvable route link (no duplicates)</li>
-              <li><b>TanStack Routes</b> tool window: unique physical routes, filter, total count, and usages</li>
+              <li><b>Go to Definition</b> on Link / Navigate / MatchRoute / *Link, navigate, redirect, linkOptions</li>
+              <li>Lands on <code>createFileRoute(...)</code>; absolute + relative <code>to</code></li>
+              <li><b>Unresolved route</b> inspection, <b>Find Usages</b>, <b>completion</b>, <b>hover docs</b></li>
+              <li>Resolves via <code>routeTree.gen.ts</code>; Routes tool window with physical files + usages</li>
             </ul>
         """.trimIndent()
 

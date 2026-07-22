@@ -31,6 +31,7 @@ class TanStackGotoDeclarationHandler : GotoDeclarationHandler {
         val target = resolveFromElement(project, host)
             ?: resolveFromElement(project, sourceElement)
             ?: return null
+        // Single unique target (file + offset) — TS may still add its own type entries separately.
         return arrayOf(target)
     }
 

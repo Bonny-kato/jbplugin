@@ -10,10 +10,11 @@ import com.intellij.psi.xml.XmlAttributeValue
  * Detects TanStack `to` / `from` string targets in JS/TS/TSX.
  *
  * Supports:
- * - `to="/absolute"`
- * - `to={"/absolute"}` / `to={'/absolute'}`
- * - `to: '/absolute'` in object literals
+ * - `to="/absolute"` / `to={"/absolute"}` on `Link`, `Navigate`, `MatchRoute`, `*Link` wrappers
+ * - `to: '/absolute'` in `navigate` / `redirect` / `linkOptions` object literals
  * - relative targets: `.`, `..`, `../edit`, `edit`
+ *
+ * @see TanStackApiContext for API kind detection (docs, inspections)
  */
 object TanStackLinkContext {
 

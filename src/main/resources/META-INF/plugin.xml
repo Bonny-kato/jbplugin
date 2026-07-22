@@ -7,9 +7,14 @@
     <description><![CDATA[
         TanStack support for WebStorm — route link navigation for TanStack Router / Start.
         <ul>
-          <li><b>Go to Definition</b> on <code>&lt;Link to="..."&gt;</code>, <code>to={"/path"}</code>, <code>navigate({ to })</code>, and <code>redirect({ to })</code></li>
+          <li><b>Go to Definition</b> on <code>Link</code>, <code>Navigate</code>, <code>MatchRoute</code>,
+              <code>*Link</code> wrappers, <code>navigate</code>, <code>redirect</code>, and <code>linkOptions</code></li>
           <li>Lands on the <code>createFileRoute(...)</code> call (not a random line)</li>
           <li>Absolute and <b>relative</b> <code>to</code> paths (<code>.</code>, <code>..</code>, <code>../edit</code>)</li>
+          <li><b>Unresolved route</b> inspection when <code>to</code> is missing from <code>routeTree.gen.ts</code></li>
+          <li><b>Find Usages</b> from a route module / <code>createFileRoute</code> path</li>
+          <li><b>Completion</b> for <code>to</code> with path + file name</li>
+          <li><b>Hover docs</b> on route paths (path, file, API)</li>
           <li>Resolves via generated <code>routeTree.gen.ts</code> to the real route module file</li>
           <li>Single gutter icon per resolvable route link (no duplicates)</li>
           <li><b>TanStack Routes</b> tool window: unique physical routes, filter, total count, and usages</li>
@@ -47,6 +52,120 @@
         <codeInsight.lineMarkerProvider
                 language="ECMAScript 6"
                 implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
+
+        <!-- Completion for to= / to: -->
+        <completion.contributor
+                language="JavaScript"
+                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
+        <completion.contributor
+                language="TypeScript"
+                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
+        <completion.contributor
+                language="TypeScript JSX"
+                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
+        <completion.contributor
+                language="JSX Harmony"
+                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
+        <completion.contributor
+                language="ECMAScript 6"
+                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
+
+        <!-- Hover / quick documentation -->
+        <lang.documentationProvider
+                language="JavaScript"
+                implementationClass="com.ipfsoftwares.jbplugin.documentation.TanStackRouteDocumentationProvider"
+                order="first"/>
+        <lang.documentationProvider
+                language="TypeScript"
+                implementationClass="com.ipfsoftwares.jbplugin.documentation.TanStackRouteDocumentationProvider"
+                order="first"/>
+        <lang.documentationProvider
+                language="TypeScript JSX"
+                implementationClass="com.ipfsoftwares.jbplugin.documentation.TanStackRouteDocumentationProvider"
+                order="first"/>
+        <lang.documentationProvider
+                language="JSX Harmony"
+                implementationClass="com.ipfsoftwares.jbplugin.documentation.TanStackRouteDocumentationProvider"
+                order="first"/>
+        <lang.documentationProvider
+                language="ECMAScript 6"
+                implementationClass="com.ipfsoftwares.jbplugin.documentation.TanStackRouteDocumentationProvider"
+                order="first"/>
+
+        <!-- Find Usages from route file / createFileRoute — must win over TypeScript defaults -->
+        <findUsagesHandlerFactory
+                implementation="com.ipfsoftwares.jbplugin.usages.TanStackRouteFindUsagesHandlerFactory"
+                order="first"
+                id="tanstack.routeFindUsages"/>
+        <usageTargetProvider
+                implementation="com.ipfsoftwares.jbplugin.usages.TanStackRouteUsageTargetProvider"
+                order="first"
+                id="tanstack.routeUsageTarget"/>
+        <customUsageSearcher
+                implementation="com.ipfsoftwares.jbplugin.usages.TanStackRouteCustomUsageSearcher"/>
+        <!-- Modern SearchTarget path (WebStorm 2026+ Alt+F7 uses SEARCH_TARGETS first) -->
+        <uiDataRule
+                implementation="com.ipfsoftwares.jbplugin.usages.TanStackSearchTargetsDataRule"
+                order="first"
+                id="tanstack.searchTargets"/>
+        <psi.declarationProvider
+                implementation="com.ipfsoftwares.jbplugin.usages.TanStackRouteSymbolDeclarationProvider"
+                order="first"
+                id="tanstack.routeDeclaration"/>
+        <lang.symbolSearchTarget
+                forClass="com.ipfsoftwares.jbplugin.usages.TanStackRouteSymbol"
+                implementationClass="com.ipfsoftwares.jbplugin.usages.TanStackRouteSymbolSearchTargetFactory"/>
+        <searcher
+                forClass="com.intellij.find.usages.api.UsageSearchParameters"
+                implementationClass="com.ipfsoftwares.jbplugin.usages.TanStackRouteUsageSearcher"/>
+
+        <!-- Unresolved to= inspection (same shortName across JS dialects to avoid duplicate warnings) -->
+        <localInspection
+                language="JavaScript"
+                shortName="TanStackUnresolvedRoute"
+                bundle="messages.JbPluginBundle"
+                key="inspection.unresolved.route.display.name"
+                groupKey="inspection.group.name"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
+        <localInspection
+                language="TypeScript"
+                shortName="TanStackUnresolvedRoute"
+                bundle="messages.JbPluginBundle"
+                key="inspection.unresolved.route.display.name"
+                groupKey="inspection.group.name"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
+        <localInspection
+                language="TypeScript JSX"
+                shortName="TanStackUnresolvedRoute"
+                bundle="messages.JbPluginBundle"
+                key="inspection.unresolved.route.display.name"
+                groupKey="inspection.group.name"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
+        <localInspection
+                language="JSX Harmony"
+                shortName="TanStackUnresolvedRoute"
+                bundle="messages.JbPluginBundle"
+                key="inspection.unresolved.route.display.name"
+                groupKey="inspection.group.name"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
+        <localInspection
+                language="ECMAScript 6"
+                shortName="TanStackUnresolvedRoute"
+                bundle="messages.JbPluginBundle"
+                key="inspection.unresolved.route.display.name"
+                groupKey="inspection.group.name"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
+
         <toolWindow
                 id="TanStack Routes"
                 anchor="right"
