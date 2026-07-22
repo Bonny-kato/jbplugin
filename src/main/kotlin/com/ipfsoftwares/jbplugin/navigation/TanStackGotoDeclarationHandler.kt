@@ -1,0 +1,52 @@
+package com.ipfsoftwares.jbplugin.navigation
+
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
+import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiManager
+import com.ipfsoftwares.jbplugin.route.RouteIndexService
+
+/**
+ * Cmd/Ctrl-click handler for TanStack `to` route paths → physical route files.
+ *
+ * Complements [TanStackLinkReferenceContributor]. When this returns a target, it appears in the
+ * declaration popup alongside TypeScript's type-map entries — choose the route module file
+ * (or use the gutter icon for a direct jump).
+ */
+class TanStackGotoDeclarationHandler : GotoDeclarationHandler {
+
+    override fun getGotoDeclarationTargets(
+        sourceElement: PsiElement?,
+        offset: Int,
+        editor: Editor?,
+    ): Array<PsiElement>? {
+        if (sourceElement == null) return null
+        val project = sourceElement.project
+        val target = resolveFromElement(project, sourceElement) ?: return null
+        return arrayOf(target)
+    }
+
+    override fun getActionText(context: DataContext): String = "Go to TanStack Route"
+
+    companion object {
+        fun resolveFromElement(project: Project, sourceElement: PsiElement): PsiElement? {
+            val link = TanStackLinkContext.findLinkTargetAt(sourceElement) ?: return null
+            val baseHint = TanStackLinkContext.findBaseRouteHint(sourceElement, link.from)
+            return resolveRoute(project, link.to, baseHint, sourceElement)
+        }
+
+        fun resolveRoute(
+            project: Project,
+            path: String,
+            baseRouteHint: String?,
+            sourceElement: PsiElement,
+        ): PsiElement? {
+            val vf = RouteIndexService.getInstance(project)
+                .resolveLink(path, baseRouteHint, sourceElement.containingFile?.virtualFile)
+                ?: return null
+            return PsiManager.getInstance(project).findFile(vf)
+        }
+    }
+}

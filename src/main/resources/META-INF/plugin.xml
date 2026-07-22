@@ -1,0 +1,55 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>com.ipfsoftwares.jbplugin</id>
+    <name>TanStack</name>
+    <vendor url="https://ipfsoftwares.com">iPF Softwares</vendor>
+
+    <description><![CDATA[
+        TanStack support for WebStorm — route link navigation for TanStack Router / Start.
+        <ul>
+          <li><b>Go to Definition</b> on <code>&lt;Link to="..."&gt;</code>, <code>to={"/path"}</code>, <code>navigate({ to })</code>, and <code>redirect({ to })</code></li>
+          <li>Absolute and <b>relative</b> <code>to</code> paths (<code>.</code>, <code>..</code>, <code>../edit</code>)</li>
+          <li>Resolves via generated <code>routeTree.gen.ts</code> to the real route module file</li>
+          <li>Gutter icons on resolvable route links</li>
+          <li><b>TanStack Routes</b> tool window listing indexed paths</li>
+        </ul>
+    ]]></description>
+
+    <!-- Product and plugin compatibility requirements.
+         https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+    <!-- JSX attribute PSI (XmlAttribute) is used for TSX Link to="..." -->
+    <depends>com.intellij.modules.xml</depends>
+    <!-- JavaScript/TypeScript PSI + languages for TSX navigation -->
+    <depends>JavaScript</depends>
+
+    <resource-bundle>messages.JbPluginBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- No language filter: must cover JS, TS, TSX (TypeScript JSX), and JSX attribute values -->
+        <psi.referenceContributor
+                implementation="com.ipfsoftwares.jbplugin.navigation.TanStackLinkReferenceContributor"/>
+        <gotoDeclarationHandler
+                implementation="com.ipfsoftwares.jbplugin.navigation.TanStackGotoDeclarationHandler"/>
+        <codeInsight.lineMarkerProvider
+                language="JavaScript"
+                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
+        <codeInsight.lineMarkerProvider
+                language="TypeScript"
+                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
+        <codeInsight.lineMarkerProvider
+                language="TypeScript JSX"
+                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
+        <codeInsight.lineMarkerProvider
+                language="JSX Harmony"
+                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
+        <codeInsight.lineMarkerProvider
+                language="ECMAScript 6"
+                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
+        <toolWindow
+                id="TanStack Routes"
+                anchor="right"
+                factoryClass="com.ipfsoftwares.jbplugin.ui.TanStackRoutesToolWindowFactory"
+                icon="AllIcons.Nodes.PpWeb"/>
+    </extensions>
+</idea-plugin>
