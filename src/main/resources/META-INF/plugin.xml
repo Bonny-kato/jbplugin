@@ -37,20 +37,13 @@
                 implementation="com.ipfsoftwares.jbplugin.navigation.TanStackLinkReferenceContributor"/>
         <gotoDeclarationHandler
                 implementation="com.ipfsoftwares.jbplugin.navigation.TanStackGotoDeclarationHandler"/>
+        <!--
+          Register once on JavaScript only. LineMarkersPass walks the dialect
+          base-language chain (TSX → … → JavaScript), so registering per dialect
+          created N mergeable markers and a gutter popup with N identical routes.
+        -->
         <codeInsight.lineMarkerProvider
                 language="JavaScript"
-                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
-        <codeInsight.lineMarkerProvider
-                language="TypeScript"
-                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
-        <codeInsight.lineMarkerProvider
-                language="TypeScript JSX"
-                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
-        <codeInsight.lineMarkerProvider
-                language="JSX Harmony"
-                implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
-        <codeInsight.lineMarkerProvider
-                language="ECMAScript 6"
                 implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
 
         <!-- Completion for to= / to: -->

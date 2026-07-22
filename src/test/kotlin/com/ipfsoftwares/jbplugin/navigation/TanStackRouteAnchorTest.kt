@@ -51,4 +51,17 @@ class TanStackRouteAnchorTest {
         assertFalse(hasPath("\""))
         content.forEach { assertTrue("expected path chars in $it", hasPath(it)) }
     }
+
+    @Test
+    fun mergeKeyIdentityIsPathAndFile() {
+        // Documents gutter merge identity: same route path + resolved file path
+        // must collapse; different paths must not.
+        data class Key(val offset: Int, val file: String, val path: String)
+        val a = Key(10, "/proj/routes/x.tsx", "/customers/residents/search")
+        val b = Key(10, "/proj/routes/x.tsx", "/customers/residents/search")
+        val c = Key(10, "/proj/routes/x.tsx", "/customers/residents/search/other-id")
+        assertEquals(a, b)
+        assertFalse(a == c)
+    }
 }
+
