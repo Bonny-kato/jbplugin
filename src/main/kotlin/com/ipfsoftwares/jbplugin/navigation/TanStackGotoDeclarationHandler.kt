@@ -5,14 +5,15 @@ import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiManager
+import com.ipfsoftwares.jbplugin.route.RouteDefinitionLocator
 import com.ipfsoftwares.jbplugin.route.RouteIndexService
 
 /**
- * Cmd/Ctrl-click handler for TanStack `to` route paths → physical route files.
+ * Cmd/Ctrl-click handler for TanStack `to` route paths → physical route definition.
  *
- * Returns at most one target (the route module). TypeScript may still add its own
- * type-map entries in the popup; pick the route `.tsx` or use the gutter icon.
+ * Lands on `createFileRoute(...)` (or lazy/code-based factory) inside the route module,
+ * not a random line at the top of the file. TypeScript may still add its own type-map
+ * entries in the popup; pick the route `.tsx` or use the gutter icon.
  */
 class TanStackGotoDeclarationHandler : GotoDeclarationHandler {
 
@@ -51,7 +52,8 @@ class TanStackGotoDeclarationHandler : GotoDeclarationHandler {
             val vf = RouteIndexService.getInstance(project)
                 .resolveLink(path, baseRouteHint, sourceElement.containingFile?.virtualFile)
                 ?: return null
-            return PsiManager.getInstance(project).findFile(vf)
+            // Prefer the factory call site so caret lands on createFileRoute(...).
+            return RouteDefinitionLocator.findDefinitionElement(project, vf, preferredPath = path)
         }
     }
 }

@@ -2,12 +2,13 @@ package com.ipfsoftwares.jbplugin.navigation
 
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiReferenceBase
+import com.ipfsoftwares.jbplugin.route.RouteDefinitionLocator
 import com.ipfsoftwares.jbplugin.route.RouteIndexService
 
 /**
- * Reference from a TanStack `to` string literal to the route module file.
+ * Reference from a TanStack `to` string literal to the route definition
+ * (`createFileRoute` / lazy factory call inside the route module).
  */
 class TanStackRouteReference(
     element: PsiElement,
@@ -21,7 +22,7 @@ class TanStackRouteReference(
         val vf = RouteIndexService.getInstance(project)
             .resolveLink(routePath, baseRouteHint, element.containingFile?.virtualFile)
             ?: return null
-        return PsiManager.getInstance(project).findFile(vf)
+        return RouteDefinitionLocator.findDefinitionElement(project, vf, preferredPath = routePath)
     }
 
     override fun getVariants(): Array<Any> {

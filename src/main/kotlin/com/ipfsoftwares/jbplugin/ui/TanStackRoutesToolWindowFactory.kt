@@ -31,6 +31,7 @@ import com.ipfsoftwares.jbplugin.TanStackIcons
 import com.ipfsoftwares.jbplugin.route.PhysicalRoute
 import com.ipfsoftwares.jbplugin.route.RouteIndexService
 import com.ipfsoftwares.jbplugin.route.RouteUsage
+import com.ipfsoftwares.jbplugin.route.RouteDefinitionLocator
 import com.ipfsoftwares.jbplugin.route.RouteUsageFinder
 import com.intellij.ui.SearchTextField
 import java.awt.BorderLayout
@@ -428,7 +429,12 @@ class TanStackRoutesToolWindowFactory : ToolWindowFactory, DumbAware {
 
         private fun openSelectedRoute() {
             val route = routeList.selectedValue ?: return
-            OpenFileDescriptor(project, route.file).navigate(true)
+            val offset = RouteDefinitionLocator.findDefinitionOffset(
+                project,
+                route.file,
+                preferredPath = route.path,
+            )
+            OpenFileDescriptor(project, route.file, offset).navigate(true)
         }
 
         private fun openSelectedUsage() {
