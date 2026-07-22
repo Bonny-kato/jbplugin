@@ -14,7 +14,7 @@ WebStorm support for **TanStack Router / Start**, focused on typed route navigat
 - **Unresolved route inspection** when `to` is missing from `routeTree.gen.ts`
 - **Find Usages (Alt+F7)** from a route module or `createFileRoute('/path')`
 - **`to` completion** with path + file name hint
-- **Hover docs** on route paths (path, file, API form, alternates)
+- **Hover docs** on route paths: public path, relative file, kind chips, params, parent/children, usage count (full doc adds id + absolute path)
 - Resolves targets from generated **`routeTree.gen.ts`**
 - **Single gutter icon** per resolvable `to` (world icon; plugin logo is branding only)
 - **TanStack Routes** tool window:
@@ -38,7 +38,7 @@ src/routes/.../$customerId.tsx   → createFileRoute('...')
 
 1. Build: `./gradlew buildPlugin`
 2. WebStorm → **Settings → Plugins → ⚙️ → Install Plugin from Disk…**
-3. Pick `build/distributions/jbplugin-1.2.6.zip`
+3. Pick `build/distributions/jbplugin-1.2.7.zip`
 4. **Restart** the IDE (required after replace/upgrade)
 
 ### Verify it loaded
@@ -65,7 +65,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || echo /opt/homebre
 Packaged plugin:
 
 ```text
-build/distributions/jbplugin-1.2.6.zip
+build/distributions/jbplugin-1.2.7.zip
 ```
 
 ## Run in a sandbox WebStorm

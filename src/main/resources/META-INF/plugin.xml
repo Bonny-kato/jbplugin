@@ -14,7 +14,7 @@
           <li><b>Unresolved route</b> inspection when <code>to</code> is missing from <code>routeTree.gen.ts</code></li>
           <li><b>Find Usages</b> from a route module / <code>createFileRoute</code> path</li>
           <li><b>Completion</b> for <code>to</code> with path + file name</li>
-          <li><b>Hover docs</b> on route paths (path, file, API)</li>
+          <li><b>Hover docs</b>: public path, file, kind, params, parent/children, usages</li>
           <li>Resolves via generated <code>routeTree.gen.ts</code> to the real route module file</li>
           <li>Single gutter icon per resolvable route link (no duplicates)</li>
           <li><b>TanStack Routes</b> tool window: unique physical routes, filter, total count, and usages</li>

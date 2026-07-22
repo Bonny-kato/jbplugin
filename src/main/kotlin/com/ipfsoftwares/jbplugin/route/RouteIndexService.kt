@@ -73,6 +73,7 @@ class RouteIndexService(private val project: Project) {
 
     fun invalidate() {
         dirty = true
+        RouteUsageFinder.clearCountCache()
     }
 
     private fun pickClosest(

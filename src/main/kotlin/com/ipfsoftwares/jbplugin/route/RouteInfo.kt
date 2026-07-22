@@ -110,7 +110,61 @@ object RouteInfoResolver {
         while (i < max && a[i] == b[i]) i++
         return (a.length - i) + (b.length - i)
     }
+
+    /**
+     * Nearest ancestor path that exists in the index, with a short file hint.
+     */
+    fun parentRoute(project: Project, path: String, contextFile: VirtualFile? = null): Pair<String, String>? {
+        val index = RouteIndexService.getInstance(project).getIndex()
+        if (index.isEmpty()) return null
+        for (candidate in RouteDocFacts.parentCandidates(path)) {
+            val file = index.resolve(candidate) ?: continue
+            val display = RouteDocFacts.normalize(candidate)
+            val hint = file.parent?.name?.let { "$it/${file.name}" } ?: file.name
+            return display to hint
+        }
+        return null
+    }
+
+    /**
+     * Preferred paths of physical routes that are direct children of [path].
+     */
+    fun childRoutes(project: Project, path: String, contextFile: VirtualFile? = null): List<String> {
+        val index = RouteIndexService.getInstance(project).getIndex()
+        if (index.isEmpty()) return emptyList()
+        val parent = RouteDocFacts.normalize(path)
+        return index.physicalRoutes()
+            .map { it.path }
+            .filter { RouteDocFacts.isDirectChild(parent, it) }
+            .distinct()
+            .sorted()
+    }
+
+    fun projectRelativeFile(project: Project, file: VirtualFile): String {
+        val fallback = file.parent?.name?.let { "$it/${file.name}" } ?: file.name
+        return RouteDocFacts.projectRelativePath(project.basePath, file.path, fallback)
+    }
 }
+
+
+/**
+ * Snapshot of everything quick-doc / hover needs to render.
+ */
+data class RouteDocModel(
+    val publicPath: String,
+    val requestedPath: String? = null,
+    val fileHint: String,
+    val kinds: List<String> = emptyList(),
+    val params: List<String> = emptyList(),
+    val parentPath: String? = null,
+    val parentFileHint: String? = null,
+    val childPaths: List<String> = emptyList(),
+    val usageCount: Int? = null,
+    val routeId: String? = null,
+    val apiLabel: String? = null,
+    val sourceTreeName: String? = null,
+    val fullFilePath: String? = null,
+)
 
 /**
  * Pure helpers for docs / completion presentation (unit-testable).
@@ -131,60 +185,187 @@ object RoutePresentation {
         return "  $parentName/"
     }
 
+    fun modelFrom(
+        info: RouteInfo,
+        fileHint: String = info.relativeHint,
+        parentPath: String? = null,
+        parentFileHint: String? = null,
+        childPaths: List<String> = emptyList(),
+        usageCount: Int? = null,
+        apiLabel: String? = null,
+        fullFilePath: String? = null,
+    ): RouteDocModel {
+        val publicPath = RouteDocFacts.publicPath(info.resolvedPath, info.alternatePaths)
+        val params = LinkedHashSet<String>()
+        params += RouteDocFacts.extractParams(publicPath)
+        params += RouteDocFacts.extractParams(info.resolvedPath)
+        info.alternatePaths.forEach { params += RouteDocFacts.extractParams(it) }
+        val kinds = RouteDocFacts.inferKinds(
+            path = publicPath,
+            fileName = info.fileName,
+            childCount = childPaths.size,
+            alternatePaths = info.alternatePaths + listOf(info.resolvedPath),
+        )
+        val routeId = RouteDocFacts.routeId(publicPath, info.resolvedPath, info.alternatePaths)
+        val requested = RouteDocFacts.usefulRequested(info.requestedPath, publicPath)
+        return RouteDocModel(
+            publicPath = publicPath,
+            requestedPath = requested,
+            fileHint = fileHint,
+            kinds = kinds,
+            params = params.toList(),
+            parentPath = parentPath,
+            parentFileHint = parentFileHint,
+            childPaths = childPaths,
+            usageCount = usageCount,
+            routeId = routeId,
+            apiLabel = apiLabel,
+            sourceTreeName = info.sourceTree?.name,
+            fullFilePath = fullFilePath,
+        )
+    }
+
     fun documentationHtml(
         info: RouteInfo,
         apiLabel: String? = null,
         usageCount: Int? = null,
     ): String = documentationHtml(
-        resolvedPath = info.resolvedPath,
-        requestedPath = info.requestedPath,
-        fileHint = info.relativeHint,
-        fullPath = info.file.path,
-        alternatePaths = info.alternatePaths,
-        sourceTreeName = info.sourceTree?.name,
-        apiLabel = apiLabel,
-        usageCount = usageCount,
+        modelFrom(info, usageCount = usageCount, apiLabel = apiLabel),
+        compact = false,
     )
 
     fun documentationHtml(
         resolvedPath: String,
         requestedPath: String = resolvedPath,
         fileHint: String,
-        fullPath: String,
+        fullPath: String = "",
         alternatePaths: List<String> = emptyList(),
         sourceTreeName: String? = null,
         apiLabel: String? = null,
         usageCount: Int? = null,
+        parentPath: String? = null,
+        parentFileHint: String? = null,
+        childPaths: List<String> = emptyList(),
+        params: List<String>? = null,
+        kinds: List<String>? = null,
+        compact: Boolean = false,
     ): String {
-        val path = escape(resolvedPath)
-        val file = escape(fileHint)
-        val full = escape(fullPath)
-        val api = apiLabel?.let { escape(it) }
-        val alts = alternatePaths.filter { it != resolvedPath }.take(6)
+        val publicPath = RouteDocFacts.publicPath(resolvedPath, alternatePaths)
+        val model = RouteDocModel(
+            publicPath = publicPath,
+            requestedPath = RouteDocFacts.usefulRequested(requestedPath, publicPath),
+            fileHint = fileHint,
+            kinds = kinds ?: RouteDocFacts.inferKinds(
+                publicPath,
+                fileHint.substringAfterLast('/'),
+                childPaths.size,
+                alternatePaths + resolvedPath,
+            ),
+            params = params ?: run {
+                val p = LinkedHashSet<String>()
+                p += RouteDocFacts.extractParams(publicPath)
+                p += RouteDocFacts.extractParams(resolvedPath)
+                alternatePaths.forEach { p += RouteDocFacts.extractParams(it) }
+                p.toList()
+            },
+            parentPath = parentPath,
+            parentFileHint = parentFileHint,
+            childPaths = childPaths,
+            usageCount = usageCount,
+            routeId = RouteDocFacts.routeId(publicPath, resolvedPath, alternatePaths),
+            apiLabel = apiLabel,
+            sourceTreeName = sourceTreeName,
+            fullFilePath = fullPath.takeIf { it.isNotBlank() },
+        )
+        return documentationHtml(model, compact = compact)
+    }
+
+    fun documentationHtml(model: RouteDocModel, compact: Boolean = true): String {
+        val path = escape(model.publicPath)
+        val file = escape(model.fileHint)
+        val api = model.apiLabel?.let { escape(it) }
+        val kinds = model.kinds
+        val usage = model.usageCount
 
         return buildString {
+            // Header: brand · API
             append("<div class='definition'>")
             append("<b>TanStack route</b>")
-            if (api != null) append(" <span style='color:gray'>(via ").append(api).append(")</span>")
+            if (api != null) {
+                append(" <span style='color:gray'>· ")
+                append(api)
+                append("</span>")
+            }
             append("</div>")
+
+            // Hero path
+            append("<div style='margin-top:6px;margin-bottom:2px'>")
+            append("<code style='font-size:1.1em'><b>")
+            append(path)
+            append("</b></code>")
+            append("</div>")
+
+            // File line
+            append("<div style='color:gray;margin-bottom:8px'><code>")
+            append(file)
+            append("</code></div>")
+
+            // Chips + usages
+            if (kinds.isNotEmpty() || usage != null) {
+                append("<div style='margin-bottom:10px'>")
+                if (kinds.isNotEmpty()) {
+                    append("<span style='color:#787878'>")
+                    append(escape(RouteDocFacts.formatKinds(kinds)))
+                    append("</span>")
+                }
+                if (usage != null) {
+                    if (kinds.isNotEmpty()) append("&nbsp;&nbsp;&nbsp;")
+                    val tone = if (usage == 0) "#987600" else "gray"
+                    append("<span style='color:")
+                    append(tone)
+                    append("'>")
+                    append(escape(RouteDocFacts.formatUsageLabel(usage)))
+                    append("</span>")
+                }
+                append("</div>")
+            }
+
             append("<table class='sections'>")
-            row("Path", "<code>$path</code>")
-            if (requestedPath != resolvedPath) {
-                row("Requested", "<code>${escape(requestedPath)}</code>")
+            if (model.parentPath != null) {
+                val parentVal = buildString {
+                    append("<code>")
+                    append(escape(model.parentPath))
+                    append("</code>")
+                    if (!model.parentFileHint.isNullOrBlank()) {
+                        append(" <span style='color:gray'>→ ")
+                        append(escape(model.parentFileHint))
+                        append("</span>")
+                    }
+                }
+                row("Parent", parentVal)
             }
-            row("File", "<code>$file</code>")
-            row("Full path", "<code>$full</code>")
-            if (alts.isNotEmpty()) {
-                row(
-                    "Also known as",
-                    alts.joinToString("<br/>") { "<code>${escape(it)}</code>" },
-                )
+            if (model.params.isNotEmpty()) {
+                row("Params", model.params.joinToString("&nbsp;&nbsp;") { "<code>${escape(it)}</code>" })
             }
-            if (usageCount != null) {
-                row("Usages", usageCount.toString())
+            if (model.childPaths.isNotEmpty()) {
+                val summary = RouteDocFacts.formatChildrenSummary(model.childPaths)
+                row("Children", "<span>${model.childPaths.size}</span> <span style='color:gray'>(${escape(summary)})</span>")
+            } else if (!compact && model.kinds.contains("layout")) {
+                row("Children", "<span style='color:gray'>none</span>")
             }
-            if (!sourceTreeName.isNullOrBlank()) {
-                row("Route tree", "<code>${escape(sourceTreeName)}</code>")
+            if (model.requestedPath != null) {
+                row("Requested", "<code>${escape(model.requestedPath)}</code>")
+            }
+            if (model.routeId != null) {
+                row("Id", "<code>${escape(model.routeId)}</code>")
+            }
+            if (!compact) {
+                if (!model.fullFilePath.isNullOrBlank() && model.fullFilePath != model.fileHint) {
+                    row("Full path", "<code>${escape(model.fullFilePath)}</code>")
+                }
+                if (!model.sourceTreeName.isNullOrBlank()) {
+                    row("Route tree", "<code>${escape(model.sourceTreeName)}</code>")
+                }
             }
             append("</table>")
         }
@@ -193,17 +374,25 @@ object RoutePresentation {
     fun quickNavigateInfo(info: RouteInfo, apiLabel: String? = null): String =
         quickNavigateInfo(info.resolvedPath, info.relativeHint, apiLabel)
 
-    fun quickNavigateInfo(resolvedPath: String, fileHint: String, apiLabel: String? = null): String {
-        val via = apiLabel?.let { " ($it)" }.orEmpty()
-        return "TanStack route$via: $resolvedPath → $fileHint"
+    fun quickNavigateInfo(
+        resolvedPath: String,
+        fileHint: String,
+        apiLabel: String? = null,
+        kinds: List<String> = emptyList(),
+        usageCount: Int? = null,
+    ): String {
+        val via = apiLabel?.let { " · $it" }.orEmpty()
+        val kindPart = if (kinds.isNotEmpty()) " · ${RouteDocFacts.formatKinds(kinds)}" else ""
+        val usagePart = usageCount?.let { " · ${RouteDocFacts.formatUsageLabel(it)}" }.orEmpty()
+        return "TanStack$via$kindPart: $resolvedPath → $fileHint$usagePart"
     }
 
     private fun StringBuilder.row(title: String, value: String) {
         append("<tr><td valign='top' class='section'><p>")
         append(escape(title))
-        append("</p></td><td valign='top'>")
+        append("</p></td><td valign='top'><p style='margin:2px 0'>")
         append(value)
-        append("</td></tr>")
+        append("</p></td></tr>")
     }
 
     private fun escape(s: String): String =
@@ -212,3 +401,4 @@ object RoutePresentation {
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
 }
+

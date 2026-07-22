@@ -7,6 +7,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.ipfsoftwares.jbplugin.navigation.TanStackLinkContext
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * A single place in the project that navigates to a TanStack route via `to`.
@@ -31,6 +32,31 @@ data class RouteUsage(
  * (or any of its alternate path keys).
  */
 object RouteUsageFinder {
+
+    private data class CountCacheKey(val projectPath: String, val pathsKey: String)
+    private val countCache = ConcurrentHashMap<CountCacheKey, Int>()
+
+    /**
+     * Cached usage count for hover docs. Cleared when the process ends; cheap path prefilter
+     * keeps first scan reasonable for medium projects.
+     */
+    fun countUsages(project: Project, paths: Collection<String>): Int {
+        val normalized = paths.map { it.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+        if (normalized.isEmpty()) return 0
+        val key = CountCacheKey(
+            projectPath = project.locationHash,
+            pathsKey = normalized.joinToString("\u0000"),
+        )
+        countCache[key]?.let { return it }
+        val count = findUsages(project, normalized).size
+        countCache[key] = count
+        return count
+    }
+
+    fun clearCountCache() {
+        countCache.clear()
+    }
+
 
     private val CODE_EXTENSIONS = setOf("ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs")
 
