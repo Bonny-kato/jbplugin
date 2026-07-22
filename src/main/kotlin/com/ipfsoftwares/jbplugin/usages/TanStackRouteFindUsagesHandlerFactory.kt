@@ -108,7 +108,8 @@ internal object RouteFindUsagesSupport {
         } ?: return element
 
         val paths = RouteInfoResolver.pathsForRouteFile(project, vf)
-        val preferredPath = paths.firstOrNull()
+        val preferredPath = com.ipfsoftwares.jbplugin.route.PhysicalRoute.pickPreferredPath(paths)
+            .ifBlank { paths.firstOrNull() }
         return RouteDefinitionLocator.findDefinitionElement(project, vf, preferredPath) ?: element
     }
 

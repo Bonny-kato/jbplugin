@@ -27,10 +27,8 @@ class TanStackRouteSymbol(
 ) : Symbol, SearchTarget {
 
     val preferredPath: String =
-        paths.firstOrNull { it.startsWith("/") && !it.contains("/_") }
-            ?: paths.firstOrNull { it.startsWith("/") }
-            ?: paths.firstOrNull()
-            ?: routeFile.name
+        com.ipfsoftwares.jbplugin.route.PhysicalRoute.pickPreferredPath(paths)
+            .ifBlank { paths.firstOrNull() ?: routeFile.name }
 
     override fun createPointer(): Pointer<TanStackRouteSymbol> {
         val project = this.project

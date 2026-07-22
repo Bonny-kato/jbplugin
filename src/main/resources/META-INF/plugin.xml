@@ -106,7 +106,7 @@
         <!-- Modern SearchTarget path (WebStorm 2026+ Alt+F7 uses SEARCH_TARGETS first) -->
         <uiDataRule
                 implementation="com.ipfsoftwares.jbplugin.usages.TanStackSearchTargetsDataRule"
-                order="first"
+                order="last"
                 id="tanstack.searchTargets"/>
         <psi.declarationProvider
                 implementation="com.ipfsoftwares.jbplugin.usages.TanStackRouteSymbolDeclarationProvider"

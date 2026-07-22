@@ -13,6 +13,7 @@ import com.ipfsoftwares.jbplugin.route.RouteUsageFinder
 
 /**
  * Collects real `to=` link/navigate/redirect call sites for [TanStackRouteSymbol].
+ * Uses the same [RouteUsageFinder] path set as the Routes tool window.
  */
 class TanStackRouteUsageSearcher : UsageSearcher {
 
@@ -21,25 +22,35 @@ class TanStackRouteUsageSearcher : UsageSearcher {
     ): Collection<Query<out Usage>> {
         val target = parameters.target as? TanStackRouteSymbol ?: return emptyList()
         val project = parameters.project
+        val paths = target.paths
+        if (paths.isEmpty()) return emptyList()
 
-        val usages = RouteUsageFinder.findUsages(project, target.paths)
+        // RouteUsageFinder already takes a read action; keep collection off EDT-sensitive paths.
+        val usages = RouteUsageFinder.findUsages(project, paths)
         if (usages.isEmpty()) {
-            return listOf(CollectionQuery(emptyList()))
+            return emptyList()
         }
 
         val psiUsages = ReadAction.compute<List<Usage>, RuntimeException> {
             val out = ArrayList<Usage>(usages.size)
             val manager = PsiManager.getInstance(project)
+            val seen = HashSet<String>()
             for (usage in usages) {
                 val psiFile = manager.findFile(usage.file) ?: continue
-                val start = usage.offset.coerceIn(0, psiFile.textLength)
-                val end = (start + usage.toValue.length).coerceAtMost(psiFile.textLength)
+                val textLen = psiFile.textLength
+                if (textLen <= 0) continue
+                val start = usage.offset.coerceIn(0, textLen)
+                val end = (start + usage.toValue.length).coerceAtMost(textLen)
                 if (start >= end) continue
+                val key = "${usage.file.path}:$start:$end"
+                if (!seen.add(key)) continue
+                // Non-declaration text usage so the usage view keeps the result.
                 out.add(PsiUsage.textUsage(psiFile, TextRange(start, end)))
             }
             out
         }
 
+        if (psiUsages.isEmpty()) return emptyList()
         return listOf(CollectionQuery(psiUsages))
     }
 }
