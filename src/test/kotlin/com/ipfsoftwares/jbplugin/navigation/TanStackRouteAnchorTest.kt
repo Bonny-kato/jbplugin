@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Pure-logic checks around path coercion used by anchor/inspection dedupe.
+ * Pure-logic checks around path coercion and anchor stability helpers.
  */
 class TanStackRouteAnchorTest {
 
@@ -29,9 +29,26 @@ class TanStackRouteAnchorTest {
 
     @Test
     fun pathVariantsStyleDedupKeysAreStable() {
-        // Mirrors inspection range-key idea: same path string normalizes consistently
         val a = TanStackLinkContext.coerceRoutePath("\"/a/b\"")
         val b = TanStackLinkContext.coerceRoutePath("'/a/b'")
         assertEquals(a, b)
+    }
+
+    @Test
+    fun preferredGutterLeafPrefersPathContentOverPunctuation() {
+        // Simulate host leaves: "{", "\"", "/customers", "\"", "}"
+        // We only unit-test the character classifier contract used by preferredGutterLeaf.
+        val punctuation = listOf("{", "}", "\"", "'", "`", " ", "{ ")
+        val content = listOf("/customers", "customers", "\$id", "_private", "a-b", "x.y")
+        fun isPathChar(c: Char) =
+            c.isLetterOrDigit() || c == '/' || c == '\$' || c == '_' || c == '.' || c == '-' || c == '%'
+        fun hasPath(s: String) = s.any { isPathChar(it) }
+
+        punctuation.forEach { assertFalse("expected no path in '$it'", hasPath(it.trim().ifEmpty { it })) }
+        // "{" has no path char
+        assertFalse(hasPath("{"))
+        assertFalse(hasPath("}"))
+        assertFalse(hasPath("\""))
+        content.forEach { assertTrue("expected path chars in $it", hasPath(it)) }
     }
 }

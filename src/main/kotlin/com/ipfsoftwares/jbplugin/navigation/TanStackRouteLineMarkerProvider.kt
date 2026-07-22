@@ -4,9 +4,8 @@ import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.util.Key
+import com.intellij.openapi.util.NotNullLazyValue
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFile
 import com.ipfsoftwares.jbplugin.route.RouteDefinitionLocator
 import com.ipfsoftwares.jbplugin.route.RouteIndexService
 
@@ -14,8 +13,13 @@ import com.ipfsoftwares.jbplugin.route.RouteIndexService
  * Single gutter icon per TanStack `to` path that resolves to the route definition
  * (`createFileRoute` call). Uses the platform world icon (not the plugin logo).
  *
- * Dedupes across multi-language line-marker registrations (JS/TS/TSX) so the
- * navigation popup never lists the same route twice.
+ * Stability notes:
+ * - Markers attach only to a stable leaf PSI element (platform requirement).
+ * - Targets are resolved lazily so hover/click does not pin stale PSI.
+ * - No cross-pass "claim" cache: those survived re-highlights with the same
+ *   modification stamp and caused the icon to disappear after hover/click.
+ * - Anchor logic guarantees one marker per `to` value even when multiple
+ *   JS/TS dialects are registered.
  */
 class TanStackRouteLineMarkerProvider : RelatedItemLineMarkerProvider() {
 
@@ -23,53 +27,51 @@ class TanStackRouteLineMarkerProvider : RelatedItemLineMarkerProvider() {
         element: PsiElement,
         result: MutableCollection<in RelatedItemLineMarkerInfo<*>>,
     ) {
+        // Platform requires line markers on leaf elements; non-leaves are dropped
+        // during daemon validation (looks like a "disappearing" gutter icon).
+        if (element.firstChild != null) return
+
         val anchor = TanStackRouteAnchor.findUniqueGutterAnchor(element) ?: return
+        if (element != anchor.gutterLeaf) return
+
         val link = anchor.link
-
-        val file = element.containingFile ?: return
-        if (!claimGutterSlot(file, anchor.gutterLeaf.textOffset)) return
-
         val project = element.project
+        val containingFile = element.containingFile ?: return
+        val vFile = containingFile.virtualFile
         val baseHint = TanStackLinkContext.findBaseRouteHint(element, link.from)
-        val vf = RouteIndexService.getInstance(project)
-            .resolveLink(link.to, baseHint, element.containingFile?.virtualFile)
-            ?: return
-        val target = RouteDefinitionLocator.findDefinitionElement(project, vf, preferredPath = link.to)
-            ?: return
 
-        // One navigation target identity (file + offset) — prevents duplicate popup rows
-        // if the builder merges with another marker on the same leaf.
-        val uniqueTargets = listOf(target).distinctBy {
-            (it.containingFile?.virtualFile?.path ?: it.containingFile?.name.orEmpty()) to it.textOffset
-        }
+        // Only show the icon when the route resolves *now*. Navigation still
+        // re-resolves lazily so the target stays valid after PSI refreshes.
+        val resolvedFile = RouteIndexService.getInstance(project)
+            .resolveLink(link.to, baseHint, vFile)
+            ?: return
 
         val api = TanStackApiContext.findContext(element)?.displayName
         val via = api?.let { " via $it" }.orEmpty()
+        val path = link.to
+        val fileName = resolvedFile.name
+        val resolvedPath = resolvedFile.path
+
         val builder = NavigationGutterIconBuilder.create(AllIcons.Nodes.PpWeb)
-            .setTargets(uniqueTargets)
-            .setTooltipText("Go to TanStack route$via: ${link.to} → ${vf.name}")
+            .setTargets(
+                NotNullLazyValue.createValue {
+                    val vf = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+                        .findFileByPath(resolvedPath)
+                        ?: resolvedFile.takeIf { it.isValid }
+                        ?: return@createValue emptyList()
+                    val target = RouteDefinitionLocator.findDefinitionElement(
+                        project,
+                        vf,
+                        preferredPath = path,
+                    ) ?: return@createValue emptyList()
+                    // Exactly one navigation target identity.
+                    listOf(target)
+                },
+            )
+            .setTooltipText("Go to TanStack route$via: $path → $fileName")
             .setPopupTitle("TanStack route")
+            .setEmptyPopupText("Route file not found")
 
         result.add(builder.createLineMarkerInfo(anchor.gutterLeaf))
-    }
-
-    companion object {
-        private data class GutterPass(val stamp: Long, val offsets: MutableSet<Int>)
-
-        private val PASS_KEY = Key.create<GutterPass>("tanstack.gutter.pass")
-
-        /**
-         * Claim this caret offset for the current file modification stamp.
-         * Returns false if another language provider already created a marker here.
-         */
-        private fun claimGutterSlot(file: PsiFile, offset: Int): Boolean {
-            val stamp = file.modificationStamp
-            var pass = file.getUserData(PASS_KEY)
-            if (pass == null || pass.stamp != stamp) {
-                pass = GutterPass(stamp, HashSet())
-                file.putUserData(PASS_KEY, pass)
-            }
-            return pass.offsets.add(offset)
-        }
     }
 }

@@ -15,26 +15,26 @@ object TanStackRouteAnchor {
     data class Anchor(
         /** Element that owns the reference range (literal / attribute value). */
         val host: PsiElement,
-        /** Leaf used as gutter line-marker target (deepest-first of [host]). */
+        /** Leaf used as gutter line-marker target (stable content leaf of [host]). */
         val gutterLeaf: PsiElement,
         val link: TanStackLinkContext.LinkTarget,
     )
 
     /**
-     * If [element] is on a TanStack `to` value, return a unique anchor for that link.
-     * Returns non-null only when [element] is the dedicated gutter leaf (or host itself when leaf-less).
+     * If [element] is the dedicated gutter leaf for a TanStack `to` value, return the anchor.
+     * Returns null for every other PSI node of the same `to` (quotes, braces, parents).
      */
     fun findUniqueGutterAnchor(element: PsiElement): Anchor? {
+        // Gutter markers must be registered on leaves only.
+        if (element.firstChild != null) return null
+
         val host = findCanonicalHost(element) ?: return null
         val link = TanStackLinkContext.findLinkTargetAt(host)
             ?: TanStackLinkContext.findLinkTargetAt(element)
             ?: return null
 
-        val leaf = PsiTreeUtil.getDeepestFirst(host)
-        // Only the first leaf of the host creates a marker — kills duplicates on quotes / braces.
-        if (element != leaf && element != host) return null
-        // Prefer leaf when available
-        if (host.firstChild != null && element != leaf) return null
+        val leaf = preferredGutterLeaf(host)
+        if (element != leaf) return null
 
         return Anchor(host = host, gutterLeaf = leaf, link = link)
     }
@@ -87,8 +87,9 @@ object TanStackRouteAnchor {
         if (element is PsiFile) return false
         if (element is XmlAttributeValue) {
             val attr = element.parent as? XmlAttribute
+            val raw = element.value.orEmpty().ifEmpty { element.text }
             return attr?.name == "to" &&
-                TanStackLinkContext.coerceRoutePath(element.value ?: element.text) != null
+                TanStackLinkContext.coerceRoutePath(raw) != null
         }
         val text = element.text ?: return false
         if (text.length > 500) return false
@@ -109,8 +110,34 @@ object TanStackRouteAnchor {
         return isElementToValue(element, path)
     }
 
+    /**
+     * Prefer the leaf that carries path characters (not `{`, `}`, or quotes).
+     * Falls back to the deepest-first leaf so we always have exactly one anchor.
+     */
+    fun preferredGutterLeaf(host: PsiElement): PsiElement {
+        if (host.firstChild == null) return host
+
+        val hostRange = host.textRange
+        var leaf: PsiElement? = PsiTreeUtil.getDeepestFirst(host)
+        val fallback = leaf ?: host
+        while (leaf != null && hostRange.contains(leaf.textRange)) {
+            if (leaf.firstChild == null) {
+                val text = leaf.text
+                if (!text.isNullOrEmpty() && text.any { isPathChar(it) }) {
+                    return leaf
+                }
+            }
+            val next = PsiTreeUtil.nextLeaf(leaf) ?: break
+            if (!hostRange.contains(next.textRange)) break
+            leaf = next
+        }
+        return fallback
+    }
+
+    private fun isPathChar(c: Char): Boolean =
+        c.isLetterOrDigit() || c == '/' || c == '$' || c == '_' || c == '.' || c == '-' || c == '%'
+
     private fun isElementToValue(element: PsiElement, path: String): Boolean {
-        // Re-use findRoutePathAt on the element — if it resolves to this path, good.
         val found = TanStackLinkContext.findRoutePathAt(element) ?: return false
         return found == path
     }

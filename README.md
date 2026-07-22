@@ -38,7 +38,7 @@ src/routes/.../$customerId.tsx   → createFileRoute('...')
 
 1. Build: `./gradlew buildPlugin`
 2. WebStorm → **Settings → Plugins → ⚙️ → Install Plugin from Disk…**
-3. Pick `build/distributions/jbplugin-1.2.3.zip`
+3. Pick `build/distributions/jbplugin-1.2.4.zip`
 4. **Restart** the IDE (required after replace/upgrade)
 
 ### Verify it loaded
@@ -65,7 +65,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || echo /opt/homebre
 Packaged plugin:
 
 ```text
-build/distributions/jbplugin-1.2.3.zip
+build/distributions/jbplugin-1.2.4.zip
 ```
 
 ## Run in a sandbox WebStorm
