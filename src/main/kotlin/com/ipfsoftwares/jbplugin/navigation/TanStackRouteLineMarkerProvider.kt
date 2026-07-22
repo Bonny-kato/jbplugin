@@ -3,14 +3,13 @@ package com.ipfsoftwares.jbplugin.navigation
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder
-import com.intellij.icons.AllIcons
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
-import com.intellij.psi.xml.XmlAttributeValue
+import com.ipfsoftwares.jbplugin.TanStackIcons
 import com.ipfsoftwares.jbplugin.route.RouteIndexService
 
 /**
- * Gutter icon on TanStack `to` string literals that resolve to a route file.
+ * Single gutter icon per TanStack `to` path that resolves to a route file.
  */
 class TanStackRouteLineMarkerProvider : RelatedItemLineMarkerProvider() {
 
@@ -18,32 +17,8 @@ class TanStackRouteLineMarkerProvider : RelatedItemLineMarkerProvider() {
         element: PsiElement,
         result: MutableCollection<in RelatedItemLineMarkerInfo<*>>,
     ) {
-        // Only anchor on leaf elements to avoid duplicate markers
-        if (element.firstChild != null) return
-        val parent = element.parent ?: return
-
-        val link = TanStackLinkContext.findLinkTargetAt(parent)
-            ?: TanStackLinkContext.findLinkTargetAt(element)
-            ?: return
-
-        // Deduplicate: only mark leaves that sit inside the path text / attr value
-        val parentText = parent.text
-        val looksLikeLiteral =
-            TanStackLinkContext.coerceRoutePath(parentText) != null ||
-                TanStackLinkContext.extractQuoted(parentText) != null ||
-                TanStackLinkContext.coerceRoutePath(element.text) != null ||
-                parent is XmlAttributeValue ||
-                element.parent is XmlAttributeValue
-        if (!looksLikeLiteral) return
-
-        // Ensure this leaf is part of the path characters when possible
-        if (link.to.isNotEmpty() &&
-            !parentText.contains(link.to) &&
-            !element.text.contains(link.to) &&
-            parent !is XmlAttributeValue
-        ) {
-            return
-        }
+        val anchor = TanStackRouteAnchor.findUniqueGutterAnchor(element) ?: return
+        val link = anchor.link
 
         val project = element.project
         val baseHint = TanStackLinkContext.findBaseRouteHint(element, link.from)
@@ -52,10 +27,11 @@ class TanStackRouteLineMarkerProvider : RelatedItemLineMarkerProvider() {
             ?: return
         val target = PsiManager.getInstance(project).findFile(vf) ?: return
 
-        val builder = NavigationGutterIconBuilder.create(AllIcons.Nodes.PpWeb)
-            .setTargets(target)
+        val builder = NavigationGutterIconBuilder.create(TanStackIcons.Route)
+            .setTargets(listOf(target))
             .setTooltipText("Go to TanStack route: ${link.to} → ${vf.name}")
+            .setPopupTitle("TanStack route")
 
-        result.add(builder.createLineMarkerInfo(element))
+        result.add(builder.createLineMarkerInfo(anchor.gutterLeaf))
     }
 }

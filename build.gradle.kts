@@ -48,8 +48,8 @@ intellijPlatform {
               <li><b>Go to Definition</b> on <code>&lt;Link to="..."&gt;</code>, <code>to={"/path"}</code>, <code>navigate({ to })</code>, and <code>redirect({ to })</code></li>
               <li>Absolute and <b>relative</b> <code>to</code> paths (<code>.</code>, <code>..</code>, <code>../edit</code>)</li>
               <li>Resolves via generated <code>routeTree.gen.ts</code> to the real route module file</li>
-              <li>Gutter icons on resolvable route links</li>
-              <li><b>TanStack Routes</b> tool window listing indexed paths</li>
+              <li>Single gutter icon per resolvable route link (no duplicates)</li>
+              <li><b>TanStack Routes</b> tool window: unique physical routes, filter, total count, and usages</li>
             </ul>
         """.trimIndent()
 

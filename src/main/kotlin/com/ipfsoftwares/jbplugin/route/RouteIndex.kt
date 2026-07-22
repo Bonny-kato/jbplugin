@@ -79,6 +79,33 @@ data class RouteIndex(
     fun allPaths(): Collection<String> =
         pathToFile.keys.filter { it.startsWith("/") }.sorted()
 
+    /**
+     * Unique physical route modules (one row per file), with a preferred navigable path.
+     * Intermediate path keys that share a file are collapsed into [PhysicalRoute.alternatePaths].
+     */
+    fun physicalRoutes(): List<PhysicalRoute> {
+        if (pathToFile.isEmpty()) return emptyList()
+
+        val byFileUrl = LinkedHashMap<String, MutableList<Pair<String, VirtualFile>>>()
+        for ((path, file) in pathToFile) {
+            // Only navigable absolute paths for tool window rows
+            if (!path.startsWith("/")) continue
+            byFileUrl.getOrPut(file.url) { mutableListOf() }.add(path to file)
+        }
+
+        return byFileUrl.values.mapNotNull { entries ->
+            val file = entries.first().second
+            val paths = entries.map { it.first }.distinct()
+            val preferred = PhysicalRoute.pickPreferredPath(paths)
+            if (preferred.isEmpty()) return@mapNotNull null
+            PhysicalRoute(
+                path = preferred,
+                file = file,
+                alternatePaths = paths.filter { it != preferred }.sorted(),
+            )
+        }.sortedBy { it.path }
+    }
+
     fun isEmpty(): Boolean = pathToFile.isEmpty()
 
     companion object {
