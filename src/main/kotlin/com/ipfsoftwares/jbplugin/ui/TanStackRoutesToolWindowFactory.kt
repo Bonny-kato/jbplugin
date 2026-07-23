@@ -7,6 +7,8 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -14,6 +16,7 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.CollectionListModel
@@ -29,9 +32,10 @@ import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import com.ipfsoftwares.jbplugin.TanStackIcons
 import com.ipfsoftwares.jbplugin.route.PhysicalRoute
+import com.ipfsoftwares.jbplugin.route.RouteDefinitionLocator
+import com.ipfsoftwares.jbplugin.route.RouteIndexListener
 import com.ipfsoftwares.jbplugin.route.RouteIndexService
 import com.ipfsoftwares.jbplugin.route.RouteUsage
-import com.ipfsoftwares.jbplugin.route.RouteDefinitionLocator
 import com.ipfsoftwares.jbplugin.route.RouteUsageFinder
 import com.intellij.ui.SearchTextField
 import java.awt.BorderLayout
@@ -62,6 +66,8 @@ class TanStackRoutesToolWindowFactory : ToolWindowFactory, DumbAware {
         val panel = RoutesPanel(project)
         val content = ContentFactory.getInstance().createContent(panel, "", false)
         content.preferredFocusableComponent = panel.preferredFocusComponent
+        // Dispose panel subscription when the tool-window content goes away.
+        Disposer.register(content) { panel.dispose() }
         toolWindow.contentManager.addContent(content)
     }
 
@@ -75,6 +81,8 @@ class TanStackRoutesToolWindowFactory : ToolWindowFactory, DumbAware {
         private val routesCountLabel = secondaryLabel(" ")
         private val usagesCountLabel = secondaryLabel("Select a route")
         private var usageRequestId = 0
+        private var disposed = false
+        private val connection = project.messageBus.connect()
 
         val preferredFocusComponent: JComponent
             get() = filterField.textEditor
@@ -124,7 +132,28 @@ class TanStackRoutesToolWindowFactory : ToolWindowFactory, DumbAware {
 
             add(header, BorderLayout.NORTH)
             add(splitter, BorderLayout.CENTER)
-            reload()
+
+            // Live sync when routeTree.gen.ts / routes change — no manual Refresh required.
+            connection.subscribe(
+                RouteIndexListener.TOPIC,
+                RouteIndexListener {
+                    ApplicationManager.getApplication().invokeLater(
+                        {
+                            if (!disposed && !project.isDisposed) {
+                                reload(rebuild = false)
+                            }
+                        },
+                        ModalityState.nonModal(),
+                    )
+                },
+            )
+
+            reload(rebuild = true)
+        }
+
+        fun dispose() {
+            disposed = true
+            connection.disconnect()
         }
 
         private fun configureRouteList() {
@@ -286,7 +315,12 @@ class TanStackRoutesToolWindowFactory : ToolWindowFactory, DumbAware {
                 "Rebuild the TanStack route index from routeTree.gen.ts",
                 AllIcons.Actions.Refresh,
             ) {
-                override fun actionPerformed(e: AnActionEvent) = reload()
+                override fun actionPerformed(e: AnActionEvent) {
+                    // Immediate UI rebuild; also notify any other subscribers.
+                    reload(rebuild = true)
+                    RouteIndexService.getInstance(project).invalidate()
+                }
+
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
             }
             val group = DefaultActionGroup().apply { add(refreshAction) }
@@ -333,19 +367,31 @@ class TanStackRoutesToolWindowFactory : ToolWindowFactory, DumbAware {
             usageList.requestFocusInWindow()
         }
 
-        private fun reload() {
+        /**
+         * @param rebuild when true, rebuild the index synchronously before painting.
+         *                when false (VFS listener path), read the already-rebuilt cache.
+         */
+        private fun reload(rebuild: Boolean) {
+            if (disposed || project.isDisposed) return
             val service = RouteIndexService.getInstance(project)
-            service.invalidate()
-            val index = service.getIndex()
+            val index = if (rebuild) {
+                service.rebuildSynchronously()
+            } else {
+                service.getIndex()
+            }
             allRoutes = index.physicalRoutes()
             applyFilter()
             if (allRoutes.isEmpty()) {
                 routesCountLabel.text = "0"
                 usageModel.removeAll()
                 usagesCountLabel.text = "No routes indexed"
-                usageList.emptyText.text = "Generate routeTree.gen.ts, then Refresh"
+                usageList.emptyText.text = "Generate routeTree.gen.ts (auto-syncs when it changes)"
             } else {
                 usageList.emptyText.text = "Select a route to see usages"
+                // Keep usages in sync for the still-selected route after generator updates.
+                if (routeList.selectedValue != null) {
+                    loadUsagesForSelection()
+                }
             }
         }
 
@@ -363,7 +409,7 @@ class TanStackRoutesToolWindowFactory : ToolWindowFactory, DumbAware {
             }
 
             routeList.emptyText.text = when {
-                allRoutes.isEmpty() -> "No routes indexed — generate routeTree.gen.ts and Refresh"
+                allRoutes.isEmpty() -> "No routes indexed — waiting for routeTree.gen.ts"
                 filtered.isEmpty() -> "No routes match “${q.trim()}”"
                 else -> "No matching routes"
             }
