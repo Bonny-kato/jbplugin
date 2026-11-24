@@ -4,7 +4,7 @@ import com.intellij.find.usages.api.PsiUsage
 import com.intellij.find.usages.api.Usage
 import com.intellij.find.usages.api.UsageSearchParameters
 import com.intellij.find.usages.api.UsageSearcher
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiManager
 import com.intellij.util.CollectionQuery
@@ -31,7 +31,7 @@ class TanStackRouteUsageSearcher : UsageSearcher {
             return emptyList()
         }
 
-        val psiUsages = ReadAction.compute<List<Usage>, RuntimeException> {
+        val psiUsages = runReadActionBlocking {
             val out = ArrayList<Usage>(usages.size)
             val manager = PsiManager.getInstance(project)
             val seen = HashSet<String>()

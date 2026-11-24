@@ -42,6 +42,17 @@ class TanStackSearchTargetsDataRule : UiDataRule {
         val el = file.findElementAt(offset)
             ?: file.findElementAt((offset - 1).coerceAtLeast(0))
             ?: return null
-        return TanStackRouteSymbol.fromElement(el)
+
+        // Walk a few parents so quote leaves still hit the path literal / Route name,
+        // but stop well before the file / component body claims the route.
+        var cur: com.intellij.psi.PsiElement? = el
+        repeat(6) {
+            if (cur == null || cur is com.intellij.psi.PsiFile) return@repeat
+            if (RouteFindUsagesSupport.isStrictDefinitionSurface(cur)) {
+                return TanStackRouteSymbol.fromElement(cur)
+            }
+            cur = cur.parent
+        }
+        return null
     }
 }

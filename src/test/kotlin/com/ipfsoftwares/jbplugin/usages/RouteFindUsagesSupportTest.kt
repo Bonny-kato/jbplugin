@@ -43,7 +43,6 @@ class RouteFindUsagesSupportTest {
 
     @Test
     fun isRouteExportBindingRejectsComponentOptionKey() {
-        // "component" is denylisted even if assignment text were weirdly nearby
         val file = "const component = createFileRoute('/x')({})"
         val offset = file.indexOf("component")
         assertFalse(RouteFindUsagesSupport.isRouteExportBindingAt("component", offset, file))
@@ -55,8 +54,34 @@ class RouteFindUsagesSupportTest {
         val factoryOffset = file.indexOf("createFileRoute")
         assertTrue(RouteFindUsagesSupport.isRouteDefinitionOffset(file, factoryOffset))
         assertTrue(RouteFindUsagesSupport.isRouteDefinitionOffset(file, file.indexOf("'/about'")))
-        // deep inside options object should not count as factory call window for path-only helper
-        // (definition offset helper is factory-window based)
         assertTrue(RouteFindUsagesSupport.isRouteDefinitionOffset(file, file.indexOf("Route =")))
+    }
+
+    @Test
+    fun bodyIdentifierIsNotRouteDefinitionOffset() {
+        val file = """
+            export const Route = createFileRoute('/_private/')({ component: Page })
+            function GroupedList() {
+              const filteredItems = []
+              return filteredItems
+            }
+        """.trimIndent()
+        val offset = file.indexOf("filteredItems")
+        assertFalse(
+            "body variable must not be treated as route definition",
+            RouteFindUsagesSupport.isRouteDefinitionOffset(file, offset),
+        )
+        assertFalse(RouteFindUsagesSupport.isRouteExportBindingAt("filteredItems", offset, file))
+    }
+
+    @Test
+    fun functionNameIsNotRouteExportBinding() {
+        val file = """
+            export const Route = createFileRoute('/_private/')({ component: Page })
+            function GroupedList() { return null }
+        """.trimIndent()
+        val offset = file.indexOf("GroupedList")
+        assertFalse(RouteFindUsagesSupport.isRouteExportBindingAt("GroupedList", offset, file))
+        assertFalse(RouteFindUsagesSupport.isRouteDefinitionOffset(file, offset))
     }
 }

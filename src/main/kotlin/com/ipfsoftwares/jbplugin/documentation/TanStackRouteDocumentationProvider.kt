@@ -112,20 +112,29 @@ class TanStackRouteDocumentationProvider : AbstractDocumentationProvider() {
             )
         }
 
-        val factoryPath = TanStackApiContext.findCreateFileRoutePathAt(seed)
-        if (!factoryPath.isNullOrBlank()) {
-            return RouteInfoResolver.resolveLink(
-                seed.project,
-                factoryPath,
-                null,
-                seed.containingFile?.virtualFile,
-            )
+        // createFileRoute path docs only on the factory name / path literal / Route export —
+        // not on arbitrary PSI that happens to sit near the call in the file.
+        if (com.ipfsoftwares.jbplugin.usages.RouteFindUsagesSupport.isStrictDefinitionSurface(seed)) {
+            val factoryPath = TanStackApiContext.findCreateFileRoutePathAt(seed)
+            if (!factoryPath.isNullOrBlank()) {
+                return RouteInfoResolver.resolveLink(
+                    seed.project,
+                    factoryPath,
+                    null,
+                    seed.containingFile?.virtualFile,
+                )
+            }
         }
 
         if (resolved != null) {
             val vf = resolved.containingFile?.virtualFile ?: return null
             val paths = RouteInfoResolver.pathsForRouteFile(resolved.project, vf)
             if (paths.isEmpty()) return null
+
+            // Only show route docs if we are hovering over the route definition itself
+            // (the file, the factory call, or the 'Route' export), not just any symbol in the file.
+            if (!isRouteDefinitionHover(resolved)) return null
+
             val preferred = PhysicalRoute.pickPreferredPath(paths)
             return RouteInfoResolver.resolveLink(
                 resolved.project,
@@ -135,5 +144,13 @@ class TanStackRouteDocumentationProvider : AbstractDocumentationProvider() {
             )
         }
         return null
+    }
+
+    private fun isRouteDefinitionHover(resolved: PsiElement): Boolean {
+        // Never treat the whole file (or random body symbols) as the route definition.
+        if (resolved is com.intellij.psi.PsiFile) return false
+
+        // Tight surfaces only — same policy as Find Usages / symbol declarations.
+        return com.ipfsoftwares.jbplugin.usages.RouteFindUsagesSupport.isStrictDefinitionSurface(resolved)
     }
 }

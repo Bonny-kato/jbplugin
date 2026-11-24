@@ -2,7 +2,7 @@ package com.ipfsoftwares.jbplugin.route
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -146,7 +146,7 @@ class RouteIndexService(private val project: Project) {
 
     private fun rebuildNow(): RouteIndex {
         val genBefore = generation.get()
-        val built = ReadAction.compute<RouteIndex, RuntimeException> { buildIndex() }
+        val built = runReadActionBlocking { buildIndex() }
         cached.set(built)
         // If generation advanced mid-build, another invalidation happened — keep dirty.
         dirty = generation.get() != genBefore

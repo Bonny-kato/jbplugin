@@ -48,7 +48,7 @@ object TanStackLinkContext {
         var current: PsiElement? = element
         var depth = 0
         while (current != null && depth < 16) {
-            val literalPath = coerceRoutePath(current.text)
+            val literalPath = coerceQuotedRoutePath(current.text)
             if (literalPath != null && isToValueElement(current)) {
                 return literalPath
             }
@@ -124,6 +124,17 @@ object TanStackLinkContext {
         return null
     }
 
+    fun coerceQuotedRoutePath(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        var s = raw.trim()
+        // Unwrap a single JSX expression layer: {"/x"} or { '/x' }
+        if (s.startsWith("{") && s.endsWith("}") && s.length >= 2) {
+            s = s.substring(1, s.length - 1).trim()
+        }
+        val quoted = extractQuoted(s) ?: return null
+        return quoted.takeIf { isPlausibleRoutePath(it) }
+    }
+
     /**
      * Normalize raw attribute / literal text into a route path string.
      * Handles: `/x`, `'/x'`, `"/x"`, `{ '/x' }`, `{"/x"}`.
@@ -145,9 +156,7 @@ object TanStackLinkContext {
      * Heuristic: the element is the value side of a `to` property/attribute.
      */
     private fun isToValueElement(literalLike: PsiElement): Boolean {
-        val literalPath = coerceRoutePath(literalLike.text) ?: return false
-        // Never treat the identifier `to` itself as the value
-        if (literalPath == "to" && extractQuoted(literalLike.text) == null) return false
+        val literalPath = coerceQuotedRoutePath(literalLike.text) ?: return false
 
         var p = literalLike.parent ?: return false
         repeat(10) {

@@ -9,5 +9,5 @@ import javax.swing.Icon
  */
 object TanStackIcons {
     @JvmField
-    val ToolWindow: Icon = IconLoader.getIcon("/icons/tanstackToolWindow.png", TanStackIcons::class.java)
+    val ToolWindow: Icon = IconLoader.getIcon("/icons/tanstackToolWindow.svg", TanStackIcons::class.java)
 }

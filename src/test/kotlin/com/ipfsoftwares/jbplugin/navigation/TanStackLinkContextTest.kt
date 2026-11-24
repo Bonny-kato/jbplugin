@@ -35,6 +35,18 @@ class TanStackLinkContextTest {
     }
 
     @Test
+    fun coerceQuotedRoutePathRejectsUnquotedExpressions() {
+        assertNull(TanStackLinkContext.coerceQuotedRoutePath("isIndividualPolicy"))
+        assertNull(TanStackLinkContext.coerceQuotedRoutePath("/about"))
+        assertNull(TanStackLinkContext.coerceQuotedRoutePath("to"))
+        assertNull(TanStackLinkContext.coerceQuotedRoutePath("{isIndividualPolicy}"))
+        assertEquals("/about", TanStackLinkContext.coerceQuotedRoutePath("\"/about\""))
+        assertEquals("/about", TanStackLinkContext.coerceQuotedRoutePath("'/about'"))
+        assertEquals("/about", TanStackLinkContext.coerceQuotedRoutePath("{\"/about\"}"))
+        assertEquals("/about", TanStackLinkContext.coerceQuotedRoutePath("{ '/about' }"))
+    }
+
+    @Test
     fun plausibleRoutePaths() {
         assertTrue(TanStackLinkContext.isPlausibleRoutePath("/"))
         assertTrue(TanStackLinkContext.isPlausibleRoutePath("/customers/${'$'}id"))

@@ -13,7 +13,6 @@
           <li>Absolute and <b>relative</b> <code>to</code> paths (<code>.</code>, <code>..</code>, <code>../edit</code>)</li>
           <li><b>Unresolved route</b> inspection when <code>to</code> is missing from <code>routeTree.gen.ts</code></li>
           <li><b>Find Usages</b> from a route module / <code>createFileRoute</code> path</li>
-          <li><b>Completion</b> for <code>to</code> with path + file name</li>
           <li><b>Hover docs</b>: public path, file, kind, params, parent/children, usages</li>
           <li>Resolves via generated <code>routeTree.gen.ts</code> to the real route module file</li>
           <li>Single gutter icon per resolvable route link (no duplicates)</li>
@@ -46,22 +45,6 @@
                 language="JavaScript"
                 implementationClass="com.ipfsoftwares.jbplugin.navigation.TanStackRouteLineMarkerProvider"/>
 
-        <!-- Completion for to= / to: -->
-        <completion.contributor
-                language="JavaScript"
-                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
-        <completion.contributor
-                language="TypeScript"
-                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
-        <completion.contributor
-                language="TypeScript JSX"
-                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
-        <completion.contributor
-                language="JSX Harmony"
-                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
-        <completion.contributor
-                language="ECMAScript 6"
-                implementationClass="com.ipfsoftwares.jbplugin.completion.TanStackRouteCompletionContributor"/>
 
         <!-- Hover / quick documentation -->
         <lang.documentationProvider
@@ -114,49 +97,12 @@
 
         <!--
           Unresolved to= inspection.
-          shortName MUST be unique per registration (platform rejects duplicates).
-          Duplicate on-editor highlights are prevented in UnresolvedRouteInspection
-          via canonical-host anchoring, not by sharing shortName.
+          Register once on JavaScript only: IntelliJ walks the dialect base-language chain
+          (TSX → TS → ES6 → JavaScript), so registering per dialect caused 4x duplicate warnings.
         -->
         <localInspection
                 language="JavaScript"
                 shortName="TanStackUnresolvedRoute"
-                bundle="messages.JbPluginBundle"
-                key="inspection.unresolved.route.display.name"
-                groupKey="inspection.group.name"
-                enabledByDefault="true"
-                level="WARNING"
-                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
-        <localInspection
-                language="TypeScript"
-                shortName="TanStackUnresolvedRouteTS"
-                bundle="messages.JbPluginBundle"
-                key="inspection.unresolved.route.display.name"
-                groupKey="inspection.group.name"
-                enabledByDefault="true"
-                level="WARNING"
-                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
-        <localInspection
-                language="TypeScript JSX"
-                shortName="TanStackUnresolvedRouteTSX"
-                bundle="messages.JbPluginBundle"
-                key="inspection.unresolved.route.display.name"
-                groupKey="inspection.group.name"
-                enabledByDefault="true"
-                level="WARNING"
-                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
-        <localInspection
-                language="JSX Harmony"
-                shortName="TanStackUnresolvedRouteJSX"
-                bundle="messages.JbPluginBundle"
-                key="inspection.unresolved.route.display.name"
-                groupKey="inspection.group.name"
-                enabledByDefault="true"
-                level="WARNING"
-                implementationClass="com.ipfsoftwares.jbplugin.inspection.UnresolvedRouteInspection"/>
-        <localInspection
-                language="ECMAScript 6"
-                shortName="TanStackUnresolvedRouteES6"
                 bundle="messages.JbPluginBundle"
                 key="inspection.unresolved.route.display.name"
                 groupKey="inspection.group.name"
@@ -168,6 +114,6 @@
                 id="TanStack Routes"
                 anchor="right"
                 factoryClass="com.ipfsoftwares.jbplugin.ui.TanStackRoutesToolWindowFactory"
-                icon="/icons/tanstackToolWindow.png"/>
+                icon="/icons/tanstackToolWindow.svg"/>
     </extensions>
 </idea-plugin>

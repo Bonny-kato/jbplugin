@@ -63,7 +63,7 @@ object TanStackRouteAnchor {
         while (current != null && depth < 14 && current !is PsiFile) {
             val text = current.text
             if (text != null && text.length <= 500) {
-                val coerced = TanStackLinkContext.coerceRoutePath(text)
+                val coerced = TanStackLinkContext.coerceQuotedRoutePath(text)
                 if (coerced != null && TanStackLinkContext.isPlausibleRoutePath(coerced)) {
                     // Must be a `to` value, not an arbitrary string
                     if (isElementToValue(current, coerced)) {
@@ -93,12 +93,11 @@ object TanStackRouteAnchor {
         }
         val text = element.text ?: return false
         if (text.length > 500) return false
-        val path = TanStackLinkContext.coerceRoutePath(text) ?: return false
+        val path = TanStackLinkContext.coerceQuotedRoutePath(text) ?: return false
         // Host text should be essentially just the path (quoted or `{...}`)
         val stripped = text.trim()
         val isTight =
-            stripped == path ||
-                stripped == "\"$path\"" ||
+            stripped == "\"$path\"" ||
                 stripped == "'$path'" ||
                 stripped == "`$path`" ||
                 stripped == "{\"$path\"}" ||

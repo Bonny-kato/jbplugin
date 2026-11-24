@@ -65,19 +65,23 @@ class TanStackRouteSymbol(
             ?: PsiManager.getInstance(project).findFile(routeFile)
 
     companion object {
+        /**
+         * Build a symbol only for a strict route-definition surface in the editor.
+         * Never from arbitrary PSI / whole files — that made Cmd-hover underline the
+         * entire route module and stole Alt+F7 from normal variables.
+         */
         fun fromElement(element: PsiElement): TanStackRouteSymbol? {
-            val paths = RouteFindUsagesSupport.pathsFor(element) ?: return null
-            val vf = when (element) {
-                is com.intellij.psi.PsiFile -> element.virtualFile
-                else -> element.containingFile?.virtualFile
-            } ?: return null
+            if (element is com.intellij.psi.PsiFile) return null
+            val paths = RouteFindUsagesSupport.pathsForDefinitionSurface(element) ?: return null
+            val vf = element.containingFile?.virtualFile ?: return null
             return TanStackRouteSymbol(element.project, vf, paths)
         }
     }
 }
 
 /**
- * Declaration of [TanStackRouteSymbol] on a route-definition PSI element.
+ * Declaration of [TanStackRouteSymbol] on a tight route-definition PSI element.
+ * Range is the element itself only (identifier / path literal) — never a whole file.
  */
 class TanStackRouteSymbolDeclaration(
     private val element: PsiElement,
@@ -92,7 +96,9 @@ class TanStackRouteSymbolDeclaration(
 
     override fun getRangeInDeclaringElement(): TextRange {
         val el = getDeclaringElement()
-        return TextRange(0, el.textLength.coerceAtLeast(0))
+        // Keep the hyperlink / highlight on the small surface only.
+        val len = el.textLength.coerceAtLeast(0).coerceAtMost(200)
+        return TextRange(0, len)
     }
 
     override fun getSymbol(): Symbol = symbol

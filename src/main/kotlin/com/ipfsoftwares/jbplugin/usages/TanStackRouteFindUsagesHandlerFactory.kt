@@ -3,7 +3,7 @@ package com.ipfsoftwares.jbplugin.usages
 import com.intellij.find.findUsages.FindUsagesHandler
 import com.intellij.find.findUsages.FindUsagesHandlerFactory
 import com.intellij.find.findUsages.FindUsagesOptions
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
@@ -46,55 +46,85 @@ internal object RouteFindUsagesSupport {
 
     /**
      * Path keys to search when Find Usages is invoked on [element], or null if we should not handle it.
+     *
+     * Important: must NOT treat arbitrary PSI inside a route module as the route.
+     * Whole-file matching is only for an explicit [PsiFile] target (e.g. Project View),
+     * never for caret/leaf elements — otherwise Alt+F7 / Cmd-hover steal normal symbols.
      */
     fun pathsFor(element: PsiElement): List<String>? {
         val project = element.project
         val index = RouteIndexService.getInstance(project).getIndex()
         if (index.isEmpty()) return null
 
-        // 1) Entire route module file
+        // 1) Explicit file target only (Project View / file node) — not caret inside the editor.
         if (element is PsiFile) {
             val vf = element.virtualFile ?: return null
             val paths = RouteInfoResolver.pathsForRouteFile(project, vf)
             return paths.takeIf { it.isNotEmpty() }
         }
 
+        return pathsForDefinitionSurface(element)
+    }
+
+    /**
+     * Strict editor/caret surfaces only: factory name, path literal, or `Route` export binding.
+     * Never matches random identifiers inside a route component body.
+     */
+    fun pathsForDefinitionSurface(element: PsiElement): List<String>? {
+        if (element is PsiFile) return null
+
+        val project = element.project
+        val index = RouteIndexService.getInstance(project).getIndex()
+        if (index.isEmpty()) return null
+
         val vf = element.containingFile?.virtualFile ?: return null
         val filePaths = RouteInfoResolver.pathsForRouteFile(project, vf)
-        val fileText = element.containingFile?.text
+        val fileText = element.containingFile?.text ?: return null
 
-        // 2) Definition-ish caret positions inside a known physical route module
-        if (filePaths.isNotEmpty() && fileText != null && isRouteDefinitionElement(element, fileText)) {
-            return filePaths
+        // Must be on a real definition surface — not merely "somewhere in a route file".
+        if (!isStrictDefinitionSurface(element, fileText)) {
+            return null
         }
 
-        // 3) Inside createFileRoute / lazy factory (even if file not yet indexed as physical)
-        if (fileText != null && TanStackApiContext.isInsideRouteFactoryCall(fileText, element.textOffset)) {
-            if (filePaths.isNotEmpty()) return filePaths
-            val literal = TanStackApiContext.findCreateFileRoutePathAt(element)
-            if (!literal.isNullOrBlank()) {
-                return expandWithIndexVariants(project, pathVariants(literal), vf)
-            }
-        }
+        if (filePaths.isNotEmpty()) return filePaths
 
-        // 4) Explicit factory path literal
         val factoryPath = TanStackApiContext.findCreateFileRoutePathAt(element)
         if (!factoryPath.isNullOrBlank()) {
-            if (filePaths.isNotEmpty()) return filePaths
             return expandWithIndexVariants(project, pathVariants(factoryPath), vf)
         }
-
-        // 5) Factory name leaf
-        if (isRouteFactoryNameLeaf(element)) {
-            if (filePaths.isNotEmpty()) return filePaths
-        }
-
-        // 6) Route export binding: `export const Route = createFileRoute(...)`
-        if (filePaths.isNotEmpty() && fileText != null && isRouteExportBinding(element, fileText)) {
-            return filePaths
-        }
-
         return null
+    }
+
+    /**
+     * True only for the tight definition surfaces we want Alt+F7 / declarations on.
+     * Deliberately narrower than "inside a route file".
+     */
+    fun isStrictDefinitionSurface(element: PsiElement, fileText: String = element.containingFile?.text.orEmpty()): Boolean {
+        if (element is PsiFile) return false
+        if (fileText.isEmpty()) return false
+
+        // Factory identifier: createFileRoute / createLazyFileRoute / createRoute
+        if (isRouteFactoryNameLeaf(element)) return true
+
+        // Path argument of the factory call (quoted literal host)
+        if (isFactoryPathLiteralSurface(element)) return true
+
+        // `export const Route = createFileRoute(...)` binding name
+        if (isRouteExportBinding(element, fileText)) return true
+
+        return false
+    }
+
+    /**
+     * Whether [element] is the path string (or its quote leaf) of createFileRoute('...').
+     */
+    fun isFactoryPathLiteralSurface(element: PsiElement): Boolean {
+        val path = TanStackApiContext.findCreateFileRoutePathAt(element) ?: return false
+        val text = element.text?.trim() ?: return false
+        // Tight hosts only — reject large parents that merely contain the call.
+        if (text.length > path.length + 6) return false
+        val stripped = text.trim('"', '\'', '`', ' ', '{', '}')
+        return stripped == path
     }
 
     /**
@@ -128,20 +158,13 @@ internal object RouteFindUsagesSupport {
      * not on arbitrary code inside the route component body.
      */
     fun isRouteDefinitionElement(element: PsiElement, fileText: String): Boolean {
-        val offset = element.textOffset
-        if (offset < 0) return false
+        if (isStrictDefinitionSurface(element, fileText)) return true
 
-        if (TanStackApiContext.isInsideRouteFactoryCall(fileText, offset)) return true
-        if (TanStackApiContext.findCreateFileRoutePathAt(element) != null) return true
-        if (isRouteFactoryNameLeaf(element)) return true
-        if (isRouteExportBinding(element, fileText)) return true
-
-        // PSI leaf may be a quote; parent may be the string / call
-        var p: PsiElement? = element.parent
-        repeat(4) {
+        // Quote leaves / thin wrappers around the path literal or export name
+        var p: PsiElement? = element
+        repeat(5) {
             if (p == null || p is PsiFile) return@repeat
-            if (TanStackApiContext.findCreateFileRoutePathAt(p) != null) return true
-            if (isRouteExportBinding(p, fileText)) return true
+            if (isStrictDefinitionSurface(p, fileText)) return true
             p = p!!.parent
         }
         return false
@@ -262,7 +285,7 @@ class TanStackRouteFindUsagesHandler(
 
         for (usage in usages) {
             indicator?.checkCanceled()
-            val info = ReadAction.compute<UsageInfo?, RuntimeException> {
+            val info = runReadActionBlocking {
                 toUsageInfo(project, usage.file, usage.offset, usage.toValue)
             } ?: continue
             if (!processor.process(info)) return false

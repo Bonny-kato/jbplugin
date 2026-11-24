@@ -1,6 +1,6 @@
 package com.ipfsoftwares.jbplugin.route
 
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -81,7 +81,7 @@ object RouteUsageFinder {
         // Prefer exact absolute paths for search needles (skip relative tokens)
         val needles = targets.filter { it.startsWith("/") }.ifEmpty { targets.toList() }
 
-        return ReadAction.compute<List<RouteUsage>, RuntimeException> {
+        return runReadActionBlocking {
             scanProject(project, needles, targets, indicator)
         }
     }

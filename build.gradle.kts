@@ -47,7 +47,7 @@ intellijPlatform {
             <ul>
               <li><b>Go to Definition</b> on Link / Navigate / MatchRoute / *Link, navigate, redirect, linkOptions</li>
               <li>Lands on <code>createFileRoute(...)</code>; absolute + relative <code>to</code></li>
-              <li><b>Unresolved route</b> inspection, <b>Find Usages</b>, <b>completion</b>, <b>hover docs</b></li>
+              <li><b>Unresolved route</b> inspection, <b>Find Usages</b>, <b>hover docs</b></li>
               <li>Resolves via <code>routeTree.gen.ts</code>; Routes tool window with physical files + usages</li>
               <li><b>Auto-syncs</b> when the generator updates <code>routeTree.gen.ts</code> (no manual Refresh required)</li>
             </ul>
